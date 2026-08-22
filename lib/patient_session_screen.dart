@@ -1,94 +1,19 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:developer';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:kine/bottomBar.dart';
-import 'package:kine/patient.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-import 'graphique.dart';
+import 'package:kine/app_bottom_navigation.dart';
+import 'progress_chart_screen.dart';
+import 'data/session_database.dart';
 
-class DatabaseHelper {
-  static final DatabaseHelper _instance = DatabaseHelper.internal();
-
-  factory DatabaseHelper() => _instance;
-
-  static Database? _database; // Change the type to nullable Database
-
-  DatabaseHelper.internal();
-
-  Future<Database> get database async {
-    if (_database != null) {
-      return _database!;
-    }
-    _database = await initDatabase();
-    return _database!;
-  }
-
-  Future<Database> initDatabase() async {
-    String databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'test.db');
-    return await openDatabase(path, version: 1, onCreate: _createDatabase);
-  }
-
-
-  void _createDatabase(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE test (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        note INTEGER,
-        patient TEXT,
-        date TEXT
-        
-      )
-    ''');
-  }
-
-  Future<void> deleteAllNotes() async {
-    Database db = await database;
-    await db.delete('test');
-  }
-  Future<int> insertSeance(int note, String date, String patient) async {
-    Database db = await database;
-    Map<String, dynamic> row = {
-      'note': note,
-      'patient': patient,
-      'date': date,
-    };
-    print("insertion faite !!!");
-    return await db.insert('test', row);
-  }
-
-  Future<List<Map<String, dynamic>>> getSeances() async {
-    DatabaseHelper databaseHelper = DatabaseHelper();
-    await databaseHelper.initDatabase(); // Initialise la base de données
-    Database db = await databaseHelper.database;
-    return await db.query('test');
-  }
-
-  Future<List<Map<String, dynamic>>> afficherSeances() async {
-    List<Map<String, dynamic>> seances = await getSeances();
-
-    for (var seance in seances) {
-      int note = seance['note'];
-      String date = seance['date'];
-
-      print('Note: $note, Date: $date');
-    }
-    return seances;
-  }
-}
-
-class PatientVue extends StatefulWidget {
-  const PatientVue({Key? key}) : super(key: key);
+class PatientSessionScreen extends StatefulWidget {
+  const PatientSessionScreen({Key? key}) : super(key: key);
 
   @override
-  _RootAppState createState() => _RootAppState();
+  _PatientSessionScreenState createState() => _PatientSessionScreenState();
 }
 
-class _RootAppState extends State<PatientVue> {
+class _PatientSessionScreenState extends State<PatientSessionScreen> {
   bool showDial = false;
 
   void showAlerte(BuildContext context, String id) {
@@ -97,7 +22,6 @@ class _RootAppState extends State<PatientVue> {
     DateTime startDate = DateTime.now();
     DateTime startTime = DateTime.now();
     var rating;
-    print("l 'id du patient est " + id);
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -179,17 +103,15 @@ class _RootAppState extends State<PatientVue> {
             TextButton(
               onPressed: () async {
 
-                DatabaseHelper db = DatabaseHelper();
-                db.deleteAllNotes();
-                print("supprimé");
+                final db = SessionDatabase.instance;
+                await db.deleteAllSessions();
                 Navigator.pop(context);
               },
-              child: Text('Cancel'),
+              child: Text('Annuler'),
             ),
             TextButton(
               onPressed: () async {
-                // Insérer l'objet Appointment dans la base de données
-
+                
                 Navigator.pop(context);
 
                 showDialog(
@@ -211,12 +133,13 @@ class _RootAppState extends State<PatientVue> {
                       actions: [
                         TextButton(
                           onPressed: () async {
-                            DatabaseHelper databaseHelper = DatabaseHelper();
+                            final databaseHelper = SessionDatabase.instance;
                             int test = int.tryParse(rating)!;
-                            await databaseHelper.insertSeance(test,
-                                DateFormat('yyyy-MM-dd').format(startDate), id);
-
-                            databaseHelper.afficherSeances();
+                            await databaseHelper.insertSession(
+                              note: test,
+                              date: DateFormat('yyyy-MM-dd').format(startDate),
+                              patient: id,
+                            );
                             Navigator.pop(context);
                           },
                           child: Text('OK'),
@@ -226,7 +149,7 @@ class _RootAppState extends State<PatientVue> {
                   },
                 );
               },
-              child: Text('Save'),
+              child: Text('Enregistrer'),
             ),
           ],
         );
@@ -243,7 +166,7 @@ class _RootAppState extends State<PatientVue> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        title: const Text("Profil"),
+        title: const Text("PROFILE"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -255,26 +178,75 @@ class _RootAppState extends State<PatientVue> {
       body: ListView(
         padding: const EdgeInsets.all(10),
         children: [
-          // COLUMN THAT WILL CONTAIN THE PROFILE
-          SizedBox(height: 50),
           Column(
-
             children: const [
               CircleAvatar(
                   radius: 50, backgroundImage: AssetImage("assets/icon.png")),
               SizedBox(height: 10),
               Text(
-                "Wadii Didah",
+                "Profil patient",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text("12/07/2001")
+              Text("Suivi en cours")
             ],
           ),
-
-
+          const SizedBox(height: 25),
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              physics: const BouncingScrollPhysics(),
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) {
+                final card = profileCompletionCards[index];
+                return SizedBox(
+                  width: 160,
+                  child: Card(
+                    shadowColor: Colors.black12,
+                    child: Padding(
+                      padding: const EdgeInsets.all(15),
+                      child: Column(
+                        children: [
+                          Icon(
+                            card.icon,
+                            size: 30,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            card.title,
+                            textAlign: TextAlign.center,
+                          ),
+                          const Spacer(),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (card.title ==
+                                  "Noter l'évolution du patient") {
+                                setState(() {
+                                  showDial = true;
+                                });
+                                showAlerte(context, "52");
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Text(card.buttonText),
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              separatorBuilder: (context, index) =>
+              const Padding(padding: EdgeInsets.only(right: 5)),
+              itemCount: profileCompletionCards.length,
+            ),
+          ),
           const SizedBox(height: 35),
           ...List.generate(
             customListTiles.length,
@@ -293,13 +265,10 @@ class _RootAppState extends State<PatientVue> {
                         // Handle the onTap action for each CustomListTile
                         // You can access the tile properties (icon, title, etc.) here
                         // Add your code here
-
-                        if (tile.title == "Visualiser Votre évolution") {
-                          print("tetstsy");
-                          Navigator.of(context).push(MaterialPageRoute(builder: (context) => Notes()));
+                        if (tile.title == "Evolution") {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProgressChartScreen()));
 
                         } else {
-                          print("Clicked on a different tile!");
                         }
                       }),
                 ),
@@ -308,14 +277,40 @@ class _RootAppState extends State<PatientVue> {
           )
         ],
       ),
-      bottomNavigationBar: BottomBar(),
+      bottomNavigationBar: AppBottomNavigation(),
     );
   }
 }
 
+class ProfileCompletionCard {
+  final String title;
+  final String buttonText;
+  final IconData icon;
 
+  ProfileCompletionCard({
+    required this.title,
+    required this.buttonText,
+    required this.icon,
+  });
+}
 
-
+List<ProfileCompletionCard> profileCompletionCards = [
+  ProfileCompletionCard(
+    title: "Noter l'évolution du patient",
+    icon: CupertinoIcons.square_list,
+    buttonText: "Ajouter",
+  ),
+  ProfileCompletionCard(
+    title: "Deposer un document",
+    icon: CupertinoIcons.doc,
+    buttonText: "Upload",
+  ),
+  ProfileCompletionCard(
+    title: "Add your skills",
+    icon: CupertinoIcons.square_list,
+    buttonText: "Add",
+  ),
+];
 
 class CustomListTile {
   final IconData icon;
@@ -330,10 +325,10 @@ class CustomListTile {
 List<CustomListTile> customListTiles = [
   CustomListTile(
     icon: Icons.insights,
-    title: "Visualiser Votre évolution",
+    title: "Evolution",
   ),
   CustomListTile(
     icon: Icons.location_on_outlined,
-    title: "Visualiser Vos Notes",
+    title: "Location",
   ),
 ];

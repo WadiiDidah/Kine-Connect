@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:kine/homeKine.dart';
-import 'choix.dart';
-import 'rendezVous.dart';
+import 'package:kine/practitioner_home_screen.dart';
+import 'profile_choice_screen.dart';
+import 'appointment_calendar_screen.dart';
 
-class BottomBar extends StatefulWidget {
+class AppBottomNavigation extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    return _BottomBar();
+    return _AppBottomNavigationState();
   }
 }
 
-class _BottomBar extends State<BottomBar> with SingleTickerProviderStateMixin {
+class _AppBottomNavigationState extends State<AppBottomNavigation> with SingleTickerProviderStateMixin {
   bool connecte = false;
   var role;
 
@@ -46,7 +46,7 @@ class _BottomBar extends State<BottomBar> with SingleTickerProviderStateMixin {
                     color: Colors.blue,
                     onPressed: () {
                       Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => HomeKine()));
+                          MaterialPageRoute(builder: (context) => PractitionerHomeScreen()));
                     },
                   ),
                   new IconButton(
@@ -59,7 +59,7 @@ class _BottomBar extends State<BottomBar> with SingleTickerProviderStateMixin {
                     color: Color(0xFF676E79),
                     onPressed: () async {
                       Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => DemoApp()));
+                          MaterialPageRoute(builder: (context) => AppointmentCalendarScreen()));
                     },
                   ),
                   if (connecte == false)
@@ -68,7 +68,7 @@ class _BottomBar extends State<BottomBar> with SingleTickerProviderStateMixin {
                       color: Color(0xFF676E79),
                       onPressed: () {
                         Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => Choix()));
+                            MaterialPageRoute(builder: (context) => ProfileChoiceScreen()));
                       },
                     ),
                 ],
